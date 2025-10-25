@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Active Downloads</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                margin: 20px;
+            }
+            table {
+                border-collapse: collapse;
+                width: 100%;
+            }
+            th,
+            td {
+                border: 1px solid #ccc;
+                padding: 8px;
+                text-align: left;
+            }
+            th {
+                background-color: #f2f2f2;
+            }
+            #error {
+                color: red;
+            }
+            #message {
+                margin-top: 10px;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Active Downloads</h1>
+
+        <!-- Login -->
+        <div id="loginArea">
+            <form id="loginForm">
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" required />
+                <button type="submit">Login</button>
+            </form>
+            <!-- relevant info is printed here -->
+            <p id="error"></p>
+        </div>
+
+        <!-- Main app (hidden until logged in) -->
+        <div id="appArea" style="display: none">
+            <form id="downloadForm">
+                <label for="url">Enter a URL:</label>
+                <input
+                    type="url"
+                    id="url"
+                    name="url"
+                    placeholder="https://example.com"
+                    required
+                />
+
+                <label for="dir">Save to directory:</label>
+                <input
+                    type="text"
+                    id="dir"
+                    name="dir"
+                    placeholder="/home/user/downloads"
+                />
+                <br /><br />
+                <button type="submit">Submit</button>
+            </form>
+            <p id="message"></p>
+
+            <button id="logoutBtn">Logout</button>
+
+            <table id="downloadsTable">
+                <thead>
+                    <tr>
+                        <th>Pause/Unpause</th>
+                        <th>Status</th>
+                        <th>Completed</th>
+                        <th>Total</th>
+                        <th>Speed</th>
+                        <th>Remove</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <script>
+            const API_BASE = window.location.origin;
+
+            // show login area when user not logged in
+            function showLogin() {
+                document.getElementById("loginArea").style.display = "block";
+                document.getElementById("appArea").style.display = "none";
+            }
+            // show app and hide login area
+            function showApp() {
+                document.getElementById("loginArea").style.display = "none";
+                document.getElementById("appArea").style.display = "block";
+            }
+
+            // initial POST with cookie to test if we are logged in
+            (async () => {
+                try {
+                    const res = await fetch(`${API_BASE}/login`, {
+                        method: "POST", //
+                        credentials: "include", // send session cookie
+                    });
+
+                    if (res.ok) {
+                        // session is valid
+                        showApp();
+                        fetchDownloads();
+                        setInterval(fetchDownloads, 3000);
+                    } else {
+                        // session invalid, this will hide app area
+                        showLogin();
+                    }
+                } catch (err) {
+                    console.log(err);
+                    showLogin();
+                }
+            })();
+
+            // Login handler
+            document
+                .getElementById("loginForm")
+                .addEventListener("submit", async (e) => {
+                    e.preventDefault();
+                    const pwd = document.getElementById("password").value;
+                    const errorEl = document.getElementById("error");
+
+                    try {
+                        const body = new URLSearchParams({ password: pwd });
+                        const res = await fetch(`${API_BASE}/login`, {
+                            method: "POST",
+                            body,
+                            credentials: "include", // important for session cookies
+                        });
+
+                        if (res.ok) {
+                            showApp();
+                            fetchDownloads();
+
+                            // Poll every 3s once logged in
+                            setInterval(fetchDownloads, 3000);
+                        } else {
+                            errorEl.textContent = "Login failed";
+                        }
+                    } catch (err) {
+                        errorEl.textContent = "Error: " + err.message;
+                    }
+                });
+
+            // Logout handler
+            document
+                .getElementById("logoutBtn")
+                .addEventListener("click", async () => {
+                    await fetch(`${API_BASE}/logout`, {
+                        method: "POST",
+                        credentials: "include",
+                    });
+                    showLogin();
+                });
+
+            // Submit new download
+            document
+                .getElementById("downloadForm")
+                .addEventListener("submit", async (e) => {
+                    e.preventDefault();
+
+                    const url = document.getElementById("url").value;
+                    const message = document.getElementById("message");
+                    const dir = document.getElementById("dir").value;
+
+                    try {
+                        const response = await fetch(`${API_BASE}/download`, {
+                            method: "POST",
+                            headers: {
+                                "Content-Type":
+                                    "application/x-www-form-urlencoded",
+                            },
+                            body: new URLSearchParams({ url, dir }),
+                            credentials: "include",
+                        });
+
+                        if (!response.ok)
+                            throw new Error(await response.json());
+
+                        const result = await response.text();
+                        message.textContent = "Download started: " + result;
+                        message.style.color = "green";
+
+                        console.log(result);
+
+                        fetchDownloads();
+                    } catch (err) {
+                        message.textContent = "Failed: " + err.message;
+                        message.style.color = "red";
+                    }
+
+                    document.getElementById("url").value = "";
+                });
+
+            async function sendGid(gid, state) {
+                let url = `${API_BASE}/pause/${gid}`;
+                const button = event?.target; // so we can update the clicked button if needed
+                console.log(state);
+                if (state == "paused") {
+                    url = `${API_BASE}/unpause/${gid}`;
+                }
+
+                try {
+                    // Disable button temporarily to prevent spam-clicking
+                    if (button) {
+                        button.disabled = true;
+                        button.textContent = "Working...";
+                    }
+
+                    const response = await fetch(url, {
+                        method: "POST",
+                        credentials: "include",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                    });
+
+                    if (response.status === 401 || response.status === 403) {
+                        console.warn("Authentication required");
+                        // showLogin(); // uncomment if you have a login modal
+                        return;
+                    }
+
+                    if (!response.ok) {
+                        const text = await response.text();
+                        throw new Error(
+                            `Request failed: ${response.status} ${text}`,
+                        );
+                    }
+
+                    // Optionally, handle JSON response
+                    const result = await response.json().catch(() => ({}));
+                    console.log("Toggled successfully:", result);
+                    if (state == "paused" || state === "paused") {
+                        message.textContent = "unpaused: GID " + gid;
+                    } else {
+                        message.textContent = "paused: GID " + gid;
+                    }
+                    message.style.color = "green";
+
+                    // Update button text or state based on server response
+                    if (button) {
+                        button.textContent = result?.paused
+                            ? "Resume"
+                            : "Pause";
+                    }
+                } catch (err) {
+                    console.error("Error pausing:", err);
+                    alert("Failed to toggle state. Please try again.");
+                    message.textContent = "Failed: " + err.message;
+                    message.style.color = "red";
+                } finally {
+                    // Re-enable button
+                    if (button) {
+                        button.disabled = false;
+                    }
+                    fetchDownloads();
+                }
+            }
+
+            async function removeDownload(gid) {
+                let url = `${API_BASE}/remove/${gid}`;
+                const button = event?.target; // so we can update the clicked button if needed
+
+                try {
+                    // Disable button temporarily to prevent spam-clicking
+                    if (button) {
+                        button.disabled = true;
+                        button.textContent = "Working...";
+                    }
+
+                    const response = await fetch(url, {
+                        method: "POST",
+                        credentials: "include",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                    });
+
+                    if (response.status === 401 || response.status === 403) {
+                        console.warn("Authentication required");
+                        showLogin(); // uncomment if you have a login modal
+                        return;
+                    }
+
+                    if (!response.ok) {
+                        const text = await response.text();
+                        throw new Error(
+                            `Request failed: ${response.status} ${text}`,
+                        );
+                    }
+
+                    // Optionally, handle JSON response
+                    const result = await response.json().catch(() => ({}));
+                    message.textContent = "removed: GID " + gid;
+                    message.style.color = "green";
+                } catch (err) {
+                    console.error("Error removing:", err);
+                    alert("Failed to remoce download.");
+                    message.textContent = "Failed: " + err.message;
+                    message.style.color = "red";
+                } finally {
+                    // Re-enable button
+                    if (button) {
+                        button.disabled = false;
+                    }
+                    fetchDownloads();
+                }
+            }
+
+            // Fetch downloads
+            async function fetchDownloads() {
+                try {
+                    const response = await fetch(
+                        `${API_BASE}/downloads/active`,
+                        {
+                            credentials: "include",
+                        },
+                    );
+
+                    if (response.status === 403 || response.status === 401) {
+                        showLogin();
+                        return;
+                    }
+
+                    const downloads = await response.json();
+                    const tbody = document.querySelector(
+                        "#downloadsTable tbody",
+                    );
+                    tbody.innerHTML = "";
+
+                    downloads.forEach((d) => {
+                        const filenames = d.files
+                            .map((f) =>
+                                f.path
+                                    ? f.path.split("/").pop()
+                                    : "(waiting for metadata)",
+                            )
+                            .join(", ");
+
+                        function getButtonTitle(state) {
+                            if (state === "paused") {
+                                return "unpause";
+                            } else {
+                                return "pause";
+                            }
+                        }
+
+                        // Main row (normal table data)
+                        const row = document.createElement("tr");
+                        row.innerHTML = `
+                            <td><button onclick="sendGid('${d.gid}', '${d.status}')">${getButtonTitle(d.status)}</button></td>
+                            <td>${d.status}</td>
+                            <td>${d.completedLength}</td>
+                            <td>${d.totalLength}</td>
+                            <td>${d.downloadSpeed}</td>
+                            <td><button onclick="removeDownload('${d.gid}')">remove</button></td>
+                        `;
+
+                        // Second row (filenames)
+                        const fileRow = document.createElement("tr");
+                        fileRow.innerHTML = `
+                            <td colspan="5" style="font-style: italic; color: gray;">
+                                ${filenames}
+                            </td>
+                        `;
+
+                        const dirRow = document.createElement("tr");
+                        dirRow.innerHTML = `
+                            <td colspan="5" style="font-style: italic; color: gray;">
+                                ${d.dir}
+                            </td>
+                        `;
+
+                        // Append both rows
+                        tbody.appendChild(row);
+                        tbody.appendChild(fileRow);
+                        tbody.appendChild(dirRow);
+                    });
+                } catch (err) {
+                    console.error("Error fetching downloads:", err);
+                }
+            }
+        </script>
+    </body>
+</html>
