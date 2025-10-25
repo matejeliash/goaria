@@ -62,6 +62,14 @@
                     name="dir"
                     placeholder="/home/user/downloads"
                 />
+
+                <label for="filename">Enter filename:</label>
+                <input
+                    type="text"
+                    id="filename"
+                    name="filename"
+                    placeholder="example_name.txt"
+                />
                 <br /><br />
                 <button type="submit">Submit</button>
             </form>
@@ -171,6 +179,7 @@
                     const url = document.getElementById("url").value;
                     const message = document.getElementById("message");
                     const dir = document.getElementById("dir").value;
+                    const filename = document.getElementById("filename").value;
 
                     try {
                         const response = await fetch(`${API_BASE}/download`, {
@@ -179,7 +188,7 @@
                                 "Content-Type":
                                     "application/x-www-form-urlencoded",
                             },
-                            body: new URLSearchParams({ url, dir }),
+                            body: new URLSearchParams({ url, dir, filename }),
                             credentials: "include",
                         });
 

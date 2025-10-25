@@ -227,6 +227,8 @@ func (ac *AriaClient) AddDownload(url, filename, dir string) (*JsonRpcResponse, 
 		params = []interface{}{uris}
 	}
 
+	fmt.Println(params)
+
 	// Add the URL to aria2
 	jsonRpcReq := ac.CreateSingleMethodRequest("aria2.addUri", params)
 	result, err := ac.CallJsonRpc(jsonRpcReq)

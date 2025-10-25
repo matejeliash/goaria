@@ -204,12 +204,12 @@ func (hm *HandlerManager) DownloadHandler(w http.ResponseWriter, r *http.Request
 	}
 
 	dir := r.FormValue("dir")
-	if err != nil {
-		http.Error(w, "Failed to add URL: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
+	filename := r.FormValue("filename")
+	fmt.Println(filename)
+	fmt.Println(url)
+	fmt.Println(dir)
 
-	jsonRpcResp, err := hm.AriaClient.AddDownload(url, "", dir)
+	jsonRpcResp, err := hm.AriaClient.AddDownload(url, filename, dir)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
