@@ -73,6 +73,10 @@ func (s *Server) setupMuxRoutes() {
 		middleware.SessionMiddleware(http.HandlerFunc(s.hm.RemoveDownloadHandler)),
 	)
 
+	s.mux.Handle("GET /getdownloaddir",
+		middleware.SessionMiddleware(http.HandlerFunc(s.hm.GetDownloadDirHandler)),
+	)
+
 }
 
 // Runs server in separate goroutine, if done channel receives we know that

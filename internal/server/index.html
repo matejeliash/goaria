@@ -45,6 +45,9 @@
 
         <!-- Main app (hidden until logged in) -->
         <div id="appArea" style="display: none">
+            <div id="dirPath">Dir path:</div>
+            <div id="freeSpace">Free space:</div>
+
             <form id="downloadForm">
                 <label for="url">Enter a URL:</label>
                 <input
@@ -54,6 +57,7 @@
                     placeholder="https://example.com"
                     required
                 />
+                <br />
 
                 <label for="dir">Save to directory:</label>
                 <input
@@ -63,6 +67,7 @@
                     placeholder="/home/user/downloads"
                 />
 
+                <br />
                 <label for="filename">Enter filename:</label>
                 <input
                     type="text"
@@ -85,7 +90,6 @@
                         <th>Completed</th>
                         <th>Total</th>
                         <th>Speed</th>
-                        <th>Remove</th>
                     </tr>
                 </thead>
                 <tbody></tbody>
@@ -118,7 +122,9 @@
                         // session is valid
                         showApp();
                         fetchDownloads();
+                        getDownloadsDir();
                         setInterval(fetchDownloads, 3000);
+                        setInterval(getDownloadsDir, 3000);
                     } else {
                         // session invalid, this will hide app area
                         showLogin();
@@ -148,6 +154,7 @@
                         if (res.ok) {
                             showApp();
                             fetchDownloads();
+                            getDownloadsDir();
 
                             // Poll every 3s once logged in
                             setInterval(fetchDownloads, 3000);
@@ -372,7 +379,6 @@
                             <td>${d.completedLength}</td>
                             <td>${d.totalLength}</td>
                             <td>${d.downloadSpeed}</td>
-                            <td><button onclick="removeDownload('${d.gid}')">remove</button></td>
                         `;
 
                         // Second row (filenames)
@@ -380,6 +386,7 @@
                         fileRow.innerHTML = `
                             <td colspan="5" style="font-style: italic; color: gray;">
                                 ${filenames}
+                                <button onclick="removeDownload('${d.gid}')">remove</button>
                             </td>
                         `;
 
@@ -395,6 +402,27 @@
                         tbody.appendChild(fileRow);
                         tbody.appendChild(dirRow);
                     });
+                } catch (err) {
+                    console.error("Error fetching downloads:", err);
+                }
+            }
+
+            async function getDownloadsDir() {
+                try {
+                    const response = await fetch(`${API_BASE}/getdownloaddir`, {
+                        credentials: "include",
+                    });
+
+                    if (response.status === 403 || response.status === 401) {
+                        showLogin();
+                        return;
+                    }
+                    const data = await response.json();
+                    document.getElementById("dirPath").innerHTML =
+                        `<span><strong> Download dir: </strong> ${data.dir_path}  </span>`;
+
+                    document.getElementById("freeSpace").innerHTML =
+                        `<span><strong> Free space in dir: </strong> ${data.free_space}  </span>`;
                 } catch (err) {
                     console.error("Error fetching downloads:", err);
                 }

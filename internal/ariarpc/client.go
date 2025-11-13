@@ -27,12 +27,12 @@ func NewAriaClient(rpcSecret string) *AriaClient {
 	return ariaClient
 }
 
-func (ac *AriaClient) CreateSingleMethodRequest(method string, params []interface{}) *JsonRpcRequest {
+func (ac *AriaClient) CreateSingleMethodRequest(method string, params []any) *JsonRpcRequest {
 	reqBody := &JsonRpcRequest{
 		Jsonrpc: "2.0",
 		Method:  method,
 		ID:      "goaria",
-		Params:  append([]interface{}{"token:" + ac.RpcSecret}, params...),
+		Params:  append([]any{"token:" + ac.RpcSecret}, params...),
 	}
 	return reqBody
 
@@ -198,33 +198,38 @@ func (ac *AriaClient) GetRelevantDownloads() ([]DownloadData, error) {
 
 func (ac *AriaClient) AddDownload(url, filename, dir string) (*JsonRpcResponse, error) {
 
-	uris := []string{url} // list of URIs
+	var params []any // all params
 
-	var params []interface{} // all params
+	var err error
 
-	var options map[string]interface{} // options inside params
+
+	if err != nil {
+		return nil, err
+	}
+	uris := []string{url}      // list of URIs
+	var options map[string]any // options inside params
 
 	if filename != "" && dir != "" {
-		options = map[string]interface{}{ // options map
+		options = map[string]any{ // options map
 			"out": filename, // force the download filename
 			"dir": dir,
 		}
-		params = []interface{}{uris, options}
+		params = []any{uris, options}
 
 	} else if filename != "" {
-		options = map[string]interface{}{ // options map
+		options = map[string]any{ // options map
 			"out": filename, // force the download filename
 		}
-		params = []interface{}{uris, options}
+		params = []any{uris, options}
 
 	} else if dir != "" {
-		options = map[string]interface{}{ // options map
+		options = map[string]any{ // options map
 			"dir": dir,
 		}
-		params = []interface{}{uris, options}
+		params = []any{uris, options}
 
 	} else {
-		params = []interface{}{uris}
+		params = []any{uris}
 	}
 
 	fmt.Println(params)

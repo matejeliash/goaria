@@ -7,7 +7,10 @@ import (
 	"goaria/internal/session"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
+
+	"golang.org/x/sys/unix"
 )
 
 type HandlerManager struct {
@@ -205,9 +208,9 @@ func (hm *HandlerManager) DownloadHandler(w http.ResponseWriter, r *http.Request
 
 	dir := r.FormValue("dir")
 	filename := r.FormValue("filename")
-	fmt.Println(filename)
-	fmt.Println(url)
-	fmt.Println(dir)
+	// fmt.Println(filename)
+	// fmt.Println(url)
+	// fmt.Println(dir)
 
 	jsonRpcResp, err := hm.AriaClient.AddDownload(url, filename, dir)
 	if err != nil {
@@ -229,4 +232,39 @@ func (hm *HandlerManager) DownloadHandler(w http.ResponseWriter, r *http.Request
 	if err := json.NewEncoder(w).Encode(responsePayload); err != nil {
 		log.Printf("Error encoding response payload: %v", err)
 	}
+}
+
+type DirData struct {
+	FreeSpace string `json:"free_space"`
+	DirPath   string `json:"dir_path"`
+}
+
+func (hm *HandlerManager) GetDownloadDirHandler(w http.ResponseWriter, r *http.Request) {
+	dir, err := os.Getwd()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	var stat unix.Statfs_t
+	err = unix.Statfs(dir, &stat)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	free := stat.Bavail * uint64(stat.Bsize)
+	freeGB := fmt.Sprintf("%.02f GB", float64(free)/1_000_000_000.0)
+
+	dir_data := DirData{
+		FreeSpace: freeGB,
+		DirPath:   dir,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if err := json.NewEncoder(w).Encode(dir_data); err != nil {
+		log.Printf("Error encoding response payload: %v", err)
+	}
+
 }
