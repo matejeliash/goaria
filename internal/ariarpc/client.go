@@ -200,12 +200,8 @@ func (ac *AriaClient) AddDownload(url, filename, dir string) (*JsonRpcResponse, 
 
 	var params []any // all params
 
-	var err error
+	//here add fetcher and interceptor
 
-
-	if err != nil {
-		return nil, err
-	}
 	uris := []string{url}      // list of URIs
 	var options map[string]any // options inside params
 
